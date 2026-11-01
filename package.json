@@ -1,0 +1,30 @@
+{
+  "name": "rag-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@ant-design/icons-vue": "7.0.1",
+    "ant-design-vue": "4.2.6",
+    "axios": "1.18.1",
+    "pinia": "3.0.4",
+    "vue": "3.5.39",
+    "vue-router": "5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@vitejs/plugin-vue": "6.0.7",
+    "@vue/compiler-sfc": "3.5.39",
+    "typescript": "5.9.3",
+    "vite": "8.1.4",
+    "vue-tsc": "3.2.5"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}
