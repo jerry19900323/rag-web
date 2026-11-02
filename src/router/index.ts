@@ -14,6 +14,8 @@ const router = createRouter({
         { path: 'documents/upload', name: 'document-upload', component: () => import('@/views/documents/DocumentUploadView.vue'), meta: { title: 'Upload document' } },
         { path: 'web-pages/import', name: 'web-page-import', component: () => import('@/views/webPages/WebPageImportView.vue'), meta: { title: 'Import web pages' } },
         { path: 'documents/:documentId', name: 'document-detail', component: () => import('@/views/documents/DocumentDetailView.vue'), meta: { title: 'Document details' } },
+        { path: 'search', name: 'search', component: () => import('@/views/SearchView.vue'), meta: { title: 'Search passages' } },
+        { path: 'model-settings', name: 'model-settings', component: () => import('@/views/ModelSettingsView.vue'), meta: { title: 'Model settings' } },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },

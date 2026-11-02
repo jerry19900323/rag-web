@@ -4,6 +4,7 @@ export interface UserInfo {
   userId: number;
   username: string;
   displayName: string;
+  role: string;
 }
 
 export interface CaptchaResult {

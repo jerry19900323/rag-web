@@ -15,6 +15,7 @@
     <div class="quick-actions">
       <button type="button" @click="$router.push({ name: 'document-upload' })"><CloudUploadOutlined /><span><strong>Upload and publish</strong><small>Preview chunks before publishing to the knowledge base.</small></span></button>
       <button type="button" @click="$router.push({ name: 'documents' })"><FileSearchOutlined /><span><strong>Browse documents</strong><small>Review metadata and ingestion history.</small></span></button>
+      <button type="button" @click="$router.push({ name: 'search' })"><SearchOutlined /><span><strong>Search passages</strong><small>Find matching text across indexed documents.</small></span></button>
       <button type="button" @click="loadHealth"><ReloadOutlined /><span><strong>Refresh health</strong><small>Check all backend dependencies again.</small></span></button>
     </div>
   </a-card>
@@ -22,7 +23,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { CloudUploadOutlined, FileSearchOutlined, ReloadOutlined } from '@ant-design/icons-vue';
+import { CloudUploadOutlined, FileSearchOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-vue';
 import { getApplicationHealth, getElasticsearchHealth, getInfrastructureHealth } from '@/api/health';
 
 type State = 'idle' | 'up' | 'down';

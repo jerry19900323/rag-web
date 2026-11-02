@@ -5,8 +5,10 @@
       <a-menu theme="dark" mode="inline" :selected-keys="selectedKeys" @click="navigate">
         <a-menu-item key="home"><template #icon><DashboardOutlined /></template>Dashboard</a-menu-item>
         <a-menu-item key="documents"><template #icon><FileTextOutlined /></template>Documents</a-menu-item>
+        <a-menu-item key="search"><template #icon><SearchOutlined /></template>Search passages</a-menu-item>
         <a-menu-item key="document-upload"><template #icon><CloudUploadOutlined /></template>Upload</a-menu-item>
         <a-menu-item key="web-page-import"><template #icon><GlobalOutlined /></template>Import web pages</a-menu-item>
+        <a-menu-item v-if="auth.user?.role === 'ADMIN'" key="model-settings"><template #icon><SettingOutlined /></template>Model settings</a-menu-item>
       </a-menu>
     </a-layout-sider>
     <a-layout>
@@ -30,7 +32,7 @@
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { MenuProps } from 'ant-design-vue';
-import { CloudUploadOutlined, DashboardOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons-vue';
+import { CloudUploadOutlined, DashboardOutlined, DownOutlined, FileTextOutlined, GlobalOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons-vue';
 import { useAppStore } from '@/stores/app';
 import { useAuthStore } from '@/stores/auth';
 

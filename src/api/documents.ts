@@ -113,6 +113,10 @@ export async function getDocument(documentId: string) {
   return data;
 }
 
+export async function deleteDocument(documentId: string) {
+  await http.delete(`/api/documents/${encodeURIComponent(documentId)}`);
+}
+
 export async function listDocumentIngestions(documentId: string, page = 0, size = 20) {
   const { data } = await http.get<PageResult<IngestionItem>>(`/api/documents/${encodeURIComponent(documentId)}/ingestions`, {
     params: { page, size },

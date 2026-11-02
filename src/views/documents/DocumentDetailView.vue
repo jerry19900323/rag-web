@@ -1,10 +1,10 @@
 <template>
   <div class="page-heading">
     <div><a-button type="link" class="back-link" @click="$router.push({ name: 'documents' })"><ArrowLeftOutlined /> Documents</a-button><h1>{{ document?.fileName || 'Document details' }}</h1><p>{{ documentId }}</p></div>
-    <a-button @click="load"><ReloadOutlined /> Refresh</a-button>
+    <a-space wrap><a-button @click="$router.push({ name: 'search', query: { documentId } })"><SearchOutlined /> Search passages</a-button><a-button @click="load"><ReloadOutlined /> Refresh</a-button><a-button v-if="isAdmin && document" danger :loading="deleting" @click="confirmDelete">Delete document</a-button></a-space>
   </div>
   <a-alert v-if="errorMessage" :message="errorMessage" type="error" show-icon class="page-alert" />
-  <a-spin :spinning="loading">
+  <a-spin :spinning="loading || deleting">
     <a-card v-if="document" title="Metadata" :bordered="false" class="detail-card">
       <a-descriptions bordered :column="2">
         <a-descriptions-item label="Document ID">{{ document.documentId }}</a-descriptions-item><a-descriptions-item label="Status"><a-badge :status="badgeStatus(document.status)" :text="document.status" /></a-descriptions-item>
@@ -29,18 +29,23 @@
 </template>
 
 <script setup lang="ts">
+import axios from 'axios';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
-import type { TablePaginationConfig } from 'ant-design-vue';
-import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons-vue';
-import { getDocument, listDocumentIngestions } from '@/api/documents';
+import { useRoute, useRouter } from 'vue-router';
+import { Modal, message, type TablePaginationConfig } from 'ant-design-vue';
+import { ArrowLeftOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-vue';
+import { deleteDocument, getDocument, listDocumentIngestions } from '@/api/documents';
 import type { DocumentItem, IngestionItem, PageResult, ProcessingStatus } from '@/api/documents';
+import { useAuthStore } from '@/stores/auth';
 import { getApiErrorMessage } from '@/utils/http';
 
 const route = useRoute();
+const router = useRouter();
+const isAdmin = computed(() => useAuthStore().user?.role === 'ADMIN');
 const documentId = computed(() => String(route.params.documentId));
 const document = ref<DocumentItem | null>(null);
 const loading = ref(false);
+const deleting = ref(false);
 const errorMessage = ref('');
 const ingestions = reactive<PageResult<IngestionItem>>({ items: [], page: 0, size: 20, totalElements: 0, totalPages: 0 });
 const columns = [
@@ -62,6 +67,27 @@ async function load(page = 0, size = ingestions.size) {
   finally { loading.value = false; }
 }
 function handleTableChange(page: TablePaginationConfig) { void load((page.current || 1) - 1, page.pageSize || 20); }
+function confirmDelete() {
+  if (!document.value) return;
+  Modal.confirm({
+    title: `Delete ${document.value.fileName}?`,
+    content: `This permanently deletes document ${documentId.value}, all indexed passages, and its ingestion history.`,
+    okText: 'Delete permanently', okType: 'danger',
+    onOk: removeDocument,
+  });
+}
+async function removeDocument() {
+  deleting.value = true; errorMessage.value = '';
+  try {
+    await deleteDocument(documentId.value);
+    message.success('Document deleted.');
+    await router.replace({ name: 'documents' });
+  } catch (error) {
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+    if (status === 404) { message.info('The document was already removed.'); await router.replace({ name: 'documents' }); }
+    else errorMessage.value = status === 403 ? 'Access denied. Only administrators can delete documents.' : getApiErrorMessage(error, 'The document could not be deleted. Please retry.');
+  } finally { deleting.value = false; }
+}
 watch(documentId, () => load());
 onMounted(() => load());
 </script>
