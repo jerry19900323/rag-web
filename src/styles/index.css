@@ -84,9 +84,7 @@ body { min-height: 100vh; }
 .model-subtext { margin: 4px 0 10px; color: #8490a5; font-size: 12px; line-height: 1.5; }
 .model-intro { margin-bottom: 18px; }
 .model-action-alert { margin-top: 14px; }
-.assignment-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.assignment-card { min-width: 0; padding: 20px; border: 1px solid #e7ecf4; border-radius: 10px; background: #fbfcff; }
-.assignment-card h3 { margin: 0; color: #26334d; font-size: 16px; }
 .model-controls { margin: -4px 0 14px; }
 .model-save { margin-top: 14px; }
-@media (max-width: 1050px) { .assignment-grid { grid-template-columns: 1fr; } }
+.model-assignment-form { max-width: 650px; }
+.model-form-note { margin-bottom: 20px; }
