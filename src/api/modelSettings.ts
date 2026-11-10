@@ -18,6 +18,8 @@ export interface ModelConnection {
   connectionId: string;
   name: string;
   provider: string;
+  accountId: string | null;
+  apiBaseUrl: string | null;
   enabled: boolean;
   hasApiKey: boolean;
   createdAt: string;
@@ -35,8 +37,12 @@ export interface ModelAssignment {
 export interface ConnectionInput {
   name: string;
   provider: string;
+  accountId?: string;
+  apiBaseUrl?: string;
   enabled: boolean;
   apiKey?: string | null;
+  usageType?: ModelPurpose;
+  modelId?: string;
 }
 
 export async function listModelProviders() {

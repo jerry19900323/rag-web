@@ -82,9 +82,13 @@ body { min-height: 100vh; }
 .search-location { padding: 4px 9px; border-radius: 6px; background: #f1f5fb; color: #667085; font-size: 12px; overflow-wrap: anywhere; }
 .search-pagination { margin-top: 20px; text-align: right; }
 .model-subtext { margin: 4px 0 10px; color: #8490a5; font-size: 12px; line-height: 1.5; }
+.model-connection-meta { color: #667085; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .model-intro { margin-bottom: 18px; }
 .model-action-alert { margin-top: 14px; }
 .model-controls { margin: -4px 0 14px; }
 .model-save { margin-top: 14px; }
 .model-assignment-form { max-width: 650px; }
+.model-connection-form { max-width: 900px; }
+.model-connection-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
 .model-form-note { margin-bottom: 20px; }
+@media (max-width: 700px) { .model-connection-fields { grid-template-columns: 1fr; } }

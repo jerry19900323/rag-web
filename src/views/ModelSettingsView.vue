@@ -8,11 +8,31 @@
     <a-alert v-if="pageError" type="error" :message="pageError" show-icon class="page-alert" />
     <a-spin :spinning="loading">
       <a-card :bordered="false" class="detail-card">
-        <template #title>Connections</template>
-        <template #extra><a-button type="primary" @click="openCreate">Add connection</a-button></template>
+        <template #title>1. Provider connection</template>
+        <template #extra><a-button @click="openCreate">New connection</a-button></template>
+        <p class="status-help model-intro">Enter your provider details here and save them. The API base URL is the connection address; Account ID and API token are separate fields.</p>
+        <a-form layout="vertical" class="model-connection-form" @submit.prevent="saveConnection">
+          <a-alert v-if="formError" type="error" :message="formError" show-icon class="page-alert" />
+          <div class="model-connection-fields">
+            <a-form-item label="Connection name" required extra="A label to identify this saved configuration."><a-input v-model:value="connectionForm.name" :maxlength="100" placeholder="For example, Main AI account" /></a-form-item>
+            <a-form-item label="Provider" required><a-select v-model:value="connectionForm.provider" :disabled="!!editingId" :options="providerOptions" placeholder="Choose the provider protocol" /></a-form-item>
+            <a-form-item label="Account ID" :required="isCloudflareProvider" :extra="isCloudflareProvider ? 'Required for Cloudflare. The server uses it to find the account model catalog.' : 'Optional provider metadata; it is not added to requests automatically.'"><a-input v-model:value="connectionForm.accountId" :maxlength="200" placeholder="Provider account ID" /></a-form-item>
+            <a-form-item label="API base URL (connection address)" :extra="isCloudflareProvider ? 'Optional. The server uses the Cloudflare account endpoint for the model catalog. A custom URL is stored for future model calls.' : 'Optional for preset providers. For OpenAI-compatible APIs, end at /v1 rather than /models.'"><a-input v-model:value="connectionForm.apiBaseUrl" :maxlength="500" :placeholder="isCloudflareProvider ? 'https://api.cloudflare.com/client/v4/accounts/YOUR_ACCOUNT_ID/ai/v1' : 'https://api.example.com/v1'" /></a-form-item>
+            <a-form-item v-if="selectedProvider?.requiresApiKey" :label="editingId ? 'Replace API token / key' : 'API token / key'" :required="!editingId" :extra="isCloudflareProvider ? 'Use a Cloudflare Workers AI API token with Workers AI Read permission. Leave blank while editing to keep the saved token.' : editingId ? 'Leave blank to keep the saved token.' : undefined"><a-input-password v-model:value="connectionForm.apiKey" autocomplete="new-password" :placeholder="editingId ? 'Leave blank to keep the saved token' : 'Provider API token or key'" /></a-form-item>
+            <template v-if="isCloudflareProvider && !editingId">
+              <a-form-item label="Usage type" required extra="The model will be selected for this usage type when the connection is created."><a-select v-model:value="connectionForm.usageType" :options="cloudflareUsageOptions" placeholder="Choose a usage type" /></a-form-item>
+              <a-form-item label="Model ID" required extra="Enter the exact Cloudflare Workers AI model ID, for example @cf/meta/llama-3.1-8b-instruct. Manual IDs are unverified."><a-input v-model:value="connectionForm.modelId" :maxlength="200" placeholder="@cf/meta/llama-3.1-8b-instruct" /></a-form-item>
+            </template>
+            <a-form-item label="Enabled"><a-switch v-model:checked="connectionForm.enabled" /></a-form-item>
+          </div>
+          <a-alert v-if="isCloudflareProvider && !editingId && cloudflareExistingAssignment?.connectionId" type="info" show-icon class="page-alert" :message="`Current ${usageName(connectionForm.usageType!)} model: ${cloudflareExistingAssignment.modelId}`" description="Saving this Cloudflare connection will replace the current model selection for this usage type." />
+          <a-alert v-if="isCloudflareApiUrl && !isCloudflareProvider" type="warning" show-icon class="page-alert" message="Choose Cloudflare Workers AI as the provider" description="A Cloudflare URL does not change another provider's API protocol. Select the Cloudflare preset if it is available from the server." />
+          <a-space><a-button type="primary" html-type="submit" :loading="savingConnection" :disabled="cloudflareCreateIncomplete">{{ editingId ? 'Save connection changes' : isCloudflareProvider ? 'Save Cloudflare model' : 'Save connection' }}</a-button><a-button v-if="editingId" @click="openCreate">Cancel editing</a-button></a-space>
+        </a-form>
+        <a-divider orientation="left">Saved connections</a-divider>
         <a-table row-key="connectionId" :data-source="connections" :pagination="false" :scroll="{ x: 760 }" :columns="connectionColumns">
           <template #bodyCell="{ column, record }">
-            <template v-if="column.key === 'name'"><strong>{{ record.name }}</strong><div class="model-subtext">{{ providerName(record.provider) }}</div></template>
+            <template v-if="column.key === 'name'"><strong>{{ record.name }}</strong><div class="model-subtext">{{ providerName(record.provider) }}</div><div v-if="record.accountId" class="model-connection-meta">Account ID: {{ record.accountId }}</div><div v-if="record.apiBaseUrl" class="model-connection-meta">API base URL: {{ record.apiBaseUrl }}</div></template>
             <template v-else-if="column.key === 'enabled'"><a-tag :color="record.enabled ? 'green' : 'default'">{{ record.enabled ? 'Enabled' : 'Disabled' }}</a-tag></template>
             <template v-else-if="column.key === 'hasApiKey'"><a-tag :color="record.hasApiKey ? 'green' : 'orange'">{{ record.hasApiKey ? 'Configured' : 'Missing' }}</a-tag></template>
             <template v-else-if="column.key === 'actions'">
@@ -30,26 +50,28 @@
         <p class="status-help">A connection test checks catalog access. It does not test model inference.</p>
       </a-card>
 
-      <a-card title="Add or change a model" :bordered="false" class="detail-card">
+      <a-card title="2. Add or change a model" :bordered="false" class="detail-card">
         <p class="status-help model-intro">Select a usage type, connection, and model. One model can be saved for each usage type. Saving a selection does not start an AI workflow.</p>
         <a-form layout="vertical" class="model-assignment-form" @submit.prevent="saveAssignment">
           <a-form-item label="Usage type" required>
             <a-select v-model:value="selection.usageType" placeholder="Select a usage type" show-search option-filter-prop="label" :options="usageOptions" @change="onUsageChange" />
           </a-form-item>
           <a-alert v-if="currentAssignment?.connectionId" type="info" show-icon class="model-form-note" :message="`Current selection: ${connectionName(currentAssignment.connectionId)} · ${currentAssignment.modelId}`" description="Saving another model for this usage type will replace this selection." />
-          <a-form-item label="Connection" required>
-            <a-select v-model:value="selection.connectionId" placeholder="Select an enabled connection" show-search option-filter-prop="label" :options="connectionOptions" @change="onConnectionChange" />
+          <a-form-item label="Saved provider connection" required extra="Choose a configuration saved in step 1. The address and credentials are entered above.">
+            <a-select v-model:value="selection.connectionId" placeholder="Select a saved, enabled connection" show-search option-filter-prop="label" :options="connectionOptions" @change="onConnectionChange" />
           </a-form-item>
+          <p v-if="!connections.some(item => item.enabled)" class="model-subtext">Add and enable a provider connection above before assigning a model.</p>
+          <p v-else-if="selection.usageType && !connectionOptions.length" class="model-subtext">No enabled connection supports this usage type. Add or enable a compatible provider connection.</p>
           <template v-if="selection.connectionId">
-            <a-form-item label="Model ID" required>
-              <a-select v-if="!selection.manual" v-model:value="selection.modelId" placeholder="Select a model" show-search option-filter-prop="label" :loading="modelLoading[selection.connectionId]" :options="modelOptions(selection.connectionId)" />
+            <a-form-item label="Model ID" required :extra="selection.usageType === 'ANSWER' || selection.usageType === 'CHAT' ? 'Choose the provider conversation model ID. This value is saved for the selected usage type.' : undefined">
+              <a-select v-if="!selection.manual && !isSelectedCloudflare" v-model:value="selection.modelId" placeholder="Select a model" show-search option-filter-prop="label" :loading="modelLoading[selection.connectionId]" :options="modelOptions(selection.connectionId)" />
               <a-input v-else v-model:value="selection.modelId" :maxlength="200" placeholder="Enter the exact provider model ID" />
             </a-form-item>
             <a-space wrap class="model-controls">
-              <a-button size="small" @click="toggleManual">{{ selection.manual ? 'Choose from catalog' : 'Enter model ID manually' }}</a-button>
+              <a-button v-if="!isSelectedCloudflare" size="small" @click="toggleManual">{{ selection.manual ? 'Choose from catalog' : 'Enter model ID manually' }}</a-button>
               <a-button size="small" :loading="modelLoading[selection.connectionId]" @click="refreshModels(selection.connectionId)">Refresh models</a-button>
             </a-space>
-            <p v-if="selection.manual || usageSupportUnverified" class="model-subtext">{{ selection.manual ? 'Manual model ID is unverified.' : 'Provider and model support for this usage type is unverified.' }}</p>
+            <p v-if="selection.manual || isSelectedCloudflare || usageSupportUnverified" class="model-subtext">{{ selection.manual || isSelectedCloudflare ? 'Manual model ID is unverified.' : 'Provider and model support for this usage type is unverified.' }}</p>
             <a-alert v-if="modelErrors[selection.connectionId]" type="warning" :message="modelErrors[selection.connectionId]" show-icon class="model-action-alert" />
           </template>
           <a-alert v-if="assignmentError" type="error" :message="assignmentError" show-icon class="model-action-alert" />
@@ -72,15 +94,6 @@
     </a-spin>
   </template>
 
-  <a-modal v-model:open="modalOpen" :title="editingId ? 'Edit connection' : 'Add connection'" :confirm-loading="savingConnection" ok-text="Save" @ok="saveConnection" @cancel="closeModal">
-    <a-alert v-if="formError" type="error" :message="formError" show-icon class="page-alert" />
-    <a-form layout="vertical">
-      <a-form-item label="Name" required><a-input v-model:value="connectionForm.name" :maxlength="100" placeholder="Connection name" /></a-form-item>
-      <a-form-item label="Provider" required><a-select v-model:value="connectionForm.provider" :disabled="!!editingId" :options="providerOptions" placeholder="Choose a provider" /></a-form-item>
-      <a-form-item v-if="selectedProvider?.requiresApiKey" :label="editingId ? 'Replace API key (optional)' : 'API key'" :required="!editingId"><a-input-password v-model:value="connectionForm.apiKey" autocomplete="new-password" :placeholder="editingId ? 'Leave blank to retain saved key' : 'Provider API key'" /></a-form-item>
-      <a-form-item label="Enabled"><a-switch v-model:checked="connectionForm.enabled" /></a-form-item>
-    </a-form>
-  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -114,12 +127,20 @@ const testingId = ref('');
 const deletingId = ref('');
 const removingUsage = ref('');
 const savingAssignment = ref(false);
-const modalOpen = ref(false);
 const editingId = ref<string | null>(null);
 const savingConnection = ref(false);
 const formError = ref('');
-const connectionForm = reactive({ name: '', provider: undefined as string | undefined, apiKey: '', enabled: true });
+const connectionForm = reactive({ name: '', provider: undefined as string | undefined, accountId: '', apiBaseUrl: '', apiKey: '', usageType: undefined as string | undefined, modelId: '', enabled: true });
 const selectedProvider = computed(() => providers.value.find(item => item.provider === connectionForm.provider));
+const isCloudflareProvider = computed(() => connectionForm.provider === 'CLOUDFLARE');
+const isSelectedCloudflare = computed(() => !!selection.connectionId && connectionById(selection.connectionId)?.provider === 'CLOUDFLARE');
+const cloudflareUsageOptions = computed(() => usageOptions.value.filter(option => selectedProvider.value?.supportedPurposes.includes(option.value)));
+const cloudflareExistingAssignment = computed(() => assignments.value.find(item => item.purpose === connectionForm.usageType));
+const cloudflareCreateIncomplete = computed(() => isCloudflareProvider.value && !editingId.value && (!connectionForm.name.trim() || !connectionForm.accountId.trim() || !connectionForm.apiKey.trim() || !connectionForm.usageType || !connectionForm.modelId.trim() || !connectionForm.enabled));
+const isCloudflareApiUrl = computed(() => {
+  try { return new URL(connectionForm.apiBaseUrl.trim()).hostname === 'api.cloudflare.com'; }
+  catch { return false; }
+});
 const providerOptions = computed(() => providers.value.map(item => ({ value: item.provider, label: item.displayName })));
 const usageOptions = computed(() => usageTypes.value.map(item => ({ value: item.usageType, label: item.displayName })));
 const currentAssignment = computed(() => assignments.value.find(item => item.purpose === selection.usageType));
@@ -128,7 +149,7 @@ const usageSupportUnverified = computed(() => !!selection.usageType && !knownPur
 const connectionOptions = computed(() => connections.value.filter(item => item.enabled && (!selection.usageType || usageSupportUnverified.value || providers.value.find(provider => provider.provider === item.provider)?.supportedPurposes.includes(selection.usageType))).map(item => ({ value: item.connectionId, label: `${item.name} · ${providerName(item.provider)}` })));
 const assignmentRows = computed(() => usageTypes.value.map(item => assignments.value.find(assignment => assignment.purpose === item.usageType) || { purpose: item.usageType, connectionId: null, modelId: null, updatedAt: null }));
 const connectionColumns = [
-  { title: 'Connection', key: 'name', width: 250 }, { title: 'Status', key: 'enabled', width: 110 },
+  { title: 'Connection', key: 'name', width: 320 }, { title: 'Status', key: 'enabled', width: 110 },
   { title: 'API key', key: 'hasApiKey', width: 120 }, { title: 'Actions', key: 'actions' },
 ];
 const assignmentColumns = [
@@ -149,6 +170,7 @@ async function loadSettings() {
     const [providerList, usageList, connectionList, assignmentList] = await Promise.all([listModelProviders(), listModelUsageTypes(), listModelConnections(), listModelAssignments()]);
     providers.value = providerList; usageTypes.value = usageList; connections.value = connectionList; assignments.value = assignmentList;
     if (selection.connectionId && !connectionList.some(item => item.connectionId === selection.connectionId && item.enabled)) { selection.connectionId = undefined; selection.modelId = undefined; }
+    selectOnlyAvailableConnection();
   } catch (error) {
     if (axios.isAxiosError(error) && error.response?.status === 403) accessDenied.value = true;
     else pageError.value = getApiErrorMessage(error, 'Model settings could not be loaded.');
@@ -158,6 +180,13 @@ async function refreshAssignments() { assignments.value = await listModelAssignm
 function onUsageChange() {
   assignmentError.value = ''; assignmentMessage.value = '';
   if (selection.connectionId && !connectionOptions.value.some(item => item.value === selection.connectionId)) { selection.connectionId = undefined; selection.modelId = undefined; selection.manual = false; }
+  selectOnlyAvailableConnection();
+}
+function selectOnlyAvailableConnection() {
+  if (!selection.connectionId && connectionOptions.value.length === 1) {
+    selection.connectionId = connectionOptions.value[0].value;
+    onConnectionChange();
+  }
 }
 function onConnectionChange() {
   selection.modelId = undefined; selection.manual = false; assignmentError.value = ''; assignmentMessage.value = '';
@@ -178,7 +207,15 @@ async function selectAssignment(item: ModelAssignment) {
 }
 async function saveAssignment() {
   if (!selection.usageType) { assignmentError.value = 'Select a usage type.'; return; }
-  if (!selection.connectionId) { assignmentError.value = 'Select an enabled connection.'; return; }
+  if (!selection.connectionId) {
+    assignmentError.value = !connections.value.some(item => item.enabled)
+      ? 'Add and enable a provider connection first.'
+      : connectionOptions.value.length === 0
+        ? 'No enabled connection supports this usage type.'
+        : 'Select an enabled connection from the Connection field.';
+    return;
+  }
+  if (!connectionOptions.value.some(item => item.value === selection.connectionId)) { assignmentError.value = 'The selected connection is disabled or does not support this usage type. Choose another connection.'; return; }
   const modelId = selection.modelId?.trim();
   if (!modelId || modelId.length > 200) { assignmentError.value = 'Enter a model ID with 1–200 characters.'; return; }
   savingAssignment.value = true; assignmentError.value = ''; assignmentMessage.value = '';
@@ -207,26 +244,69 @@ async function removeAssignment(usage: string) {
   } catch (error) { removeError.value = getApiErrorMessage(error, 'Model selection could not be removed.'); }
   finally { removingUsage.value = ''; }
 }
-function openCreate() { editingId.value = null; Object.assign(connectionForm, { name: '', provider: undefined, apiKey: '', enabled: true }); formError.value = ''; modalOpen.value = true; }
-function openEdit(item: ModelConnection) { editingId.value = item.connectionId; Object.assign(connectionForm, { name: item.name, provider: item.provider, apiKey: '', enabled: item.enabled }); formError.value = ''; modalOpen.value = true; }
-function closeModal() { connectionForm.apiKey = ''; formError.value = ''; }
+function scrollToConnectionForm() { document.querySelector('.model-connection-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+function resetConnectionForm() { editingId.value = null; Object.assign(connectionForm, { name: '', provider: undefined, accountId: '', apiBaseUrl: '', apiKey: '', usageType: undefined, modelId: '', enabled: true }); formError.value = ''; }
+function openCreate() { resetConnectionForm(); scrollToConnectionForm(); }
+function openEdit(item: ModelConnection) { editingId.value = item.connectionId; Object.assign(connectionForm, { name: item.name, provider: item.provider, accountId: item.accountId || '', apiBaseUrl: item.apiBaseUrl || '', apiKey: '', usageType: undefined, modelId: '', enabled: item.enabled }); formError.value = ''; scrollToConnectionForm(); }
+function validateApiBaseUrl(value: string) {
+  if (!value) return '';
+  if (value.length > 500) return 'API base URL must contain at most 500 characters.';
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password || value.includes('?') || value.includes('#')) return 'Enter an HTTP(S) base URL without credentials, query, or fragment.';
+  } catch { return 'Enter a valid absolute HTTP(S) base URL.'; }
+  return '';
+}
 async function saveConnection() {
   const name = connectionForm.name.trim();
+  const accountId = connectionForm.accountId.trim();
+  const apiBaseUrl = connectionForm.apiBaseUrl.trim();
   if (!name || name.length > 100) { formError.value = 'Name must contain 1–100 characters.'; return; }
   if (!connectionForm.provider) { formError.value = 'Choose a provider.'; return; }
+  if (isCloudflareProvider.value && !accountId) { formError.value = 'Account ID is required for Cloudflare.'; return; }
+  if (isCloudflareProvider.value && !/^[A-Za-z0-9_-]+$/.test(accountId)) { formError.value = 'Cloudflare Account ID may contain only letters, digits, underscores, and hyphens.'; return; }
+  if (accountId.length > 200) { formError.value = 'Account ID must contain at most 200 characters.'; return; }
+  const urlError = validateApiBaseUrl(apiBaseUrl);
+  if (urlError) { formError.value = urlError; return; }
   if (!editingId.value && selectedProvider.value?.requiresApiKey && !connectionForm.apiKey.trim()) { formError.value = 'Enter an API key.'; return; }
+  const cloudflareModelId = connectionForm.modelId.trim();
+  if (isCloudflareProvider.value && !editingId.value) {
+    if (!connectionForm.enabled) { formError.value = 'Enable the Cloudflare connection to save its model.'; return; }
+    if (!connectionForm.usageType || !selectedProvider.value?.supportedPurposes.includes(connectionForm.usageType)) { formError.value = 'Choose a supported usage type for Cloudflare.'; return; }
+    if (!cloudflareModelId || cloudflareModelId.length > 200) { formError.value = 'Enter a model ID with 1–200 characters.'; return; }
+  }
   savingConnection.value = true; formError.value = '';
   try {
-    const saved = await saveModelConnection({ name, provider: connectionForm.provider, enabled: connectionForm.enabled, ...(connectionForm.apiKey.trim() ? { apiKey: connectionForm.apiKey.trim() } : {}) }, editingId.value || undefined);
+    const editedId = editingId.value;
+    const previous = editedId ? connectionById(editedId) : undefined;
+    const keyChanged = !!connectionForm.apiKey.trim();
+    const saved = await saveModelConnection({
+      name, provider: connectionForm.provider, enabled: connectionForm.enabled,
+      ...(editedId || accountId ? { accountId } : {}),
+      ...(editedId || apiBaseUrl ? { apiBaseUrl } : {}),
+      ...(connectionForm.apiKey.trim() ? { apiKey: connectionForm.apiKey.trim() } : {}),
+      ...(!editedId && isCloudflareProvider.value ? { usageType: connectionForm.usageType, modelId: cloudflareModelId } : {}),
+    }, editedId || undefined);
     connections.value = [...connections.value.filter(item => item.connectionId !== saved.connectionId), saved];
-    modalOpen.value = false; closeModal();
-    connectionActionError.value = false; connectionActionMessage.value = 'Connection saved.';
-    if (!editingId.value && saved.enabled) {
-      if (selection.usageType && !usageSupportUnverified.value && !providers.value.find(item => item.provider === saved.provider)?.supportedPurposes.includes(selection.usageType)) selection.usageType = undefined;
-      selection.connectionId = saved.connectionId; selection.modelId = undefined; selection.manual = false;
-      void refreshModels(saved.connectionId);
+    connectionActionError.value = false; connectionActionMessage.value = !editedId && saved.provider === 'CLOUDFLARE' ? 'Cloudflare model saved.' : 'Connection saved.';
+    if (!editedId && saved.enabled) {
+      if (saved.provider === 'CLOUDFLARE') selection.usageType = connectionForm.usageType;
+      else if (selection.usageType && !usageSupportUnverified.value && !providers.value.find(item => item.provider === saved.provider)?.supportedPurposes.includes(selection.usageType)) selection.usageType = undefined;
+      selection.connectionId = saved.connectionId; selection.modelId = saved.provider === 'CLOUDFLARE' ? cloudflareModelId : undefined; selection.manual = saved.provider === 'CLOUDFLARE';
+      if (saved.provider !== 'CLOUDFLARE') void refreshModels(saved.connectionId);
     }
-    if (editingId.value === selection.connectionId && !saved.enabled) { selection.connectionId = undefined; selection.modelId = undefined; }
+    if (editedId && (previous?.apiBaseUrl !== saved.apiBaseUrl || keyChanged)) {
+      delete models[saved.connectionId];
+      if (selection.connectionId === saved.connectionId) { selection.modelId = undefined; selection.manual = false; }
+      if (saved.enabled) void refreshModels(saved.connectionId);
+    }
+    if (editedId === selection.connectionId && !saved.enabled) { selection.connectionId = undefined; selection.modelId = undefined; }
+    selectOnlyAvailableConnection();
+    if (!editedId && saved.provider === 'CLOUDFLARE') {
+      try { await refreshAssignments(); }
+      catch { connectionActionError.value = true; connectionActionMessage.value = 'Cloudflare model saved, but current selections could not be refreshed. Refresh settings to reload them.'; }
+    }
+    resetConnectionForm();
     try { connections.value = await listModelConnections(); }
     catch { connectionActionError.value = true; connectionActionMessage.value = 'Connection saved, but the connection list could not be refreshed.'; }
   } catch (error) {
