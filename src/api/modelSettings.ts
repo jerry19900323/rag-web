@@ -22,6 +22,7 @@ export interface ModelConnection {
   apiBaseUrl: string | null;
   enabled: boolean;
   hasApiKey: boolean;
+  apiKey: string | null;
   createdAt: string;
   updatedAt: string;
 }

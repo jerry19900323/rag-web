@@ -6,7 +6,7 @@ export interface ApiErrorBody {
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
-  timeout: 15_000,
+  timeout: 150_000,
 });
 
 http.interceptors.request.use((config) => {

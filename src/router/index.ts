@@ -15,6 +15,7 @@ const router = createRouter({
         { path: 'web-pages/import', name: 'web-page-import', component: () => import('@/views/webPages/WebPageImportView.vue'), meta: { title: 'Import web pages' } },
         { path: 'documents/:documentId', name: 'document-detail', component: () => import('@/views/documents/DocumentDetailView.vue'), meta: { title: 'Document details' } },
         { path: 'search', name: 'search', component: () => import('@/views/SearchView.vue'), meta: { title: 'Search passages' } },
+        { path: 'ask', name: 'ask', component: () => import('@/views/AskView.vue'), meta: { title: 'Ask a question' } },
         { path: 'model-settings', name: 'model-settings', component: () => import('@/views/ModelSettingsView.vue'), meta: { title: 'Model settings' } },
       ],
     },

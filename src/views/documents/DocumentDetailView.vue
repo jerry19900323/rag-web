@@ -1,7 +1,7 @@
 <template>
   <div class="page-heading">
     <div><a-button type="link" class="back-link" @click="$router.push({ name: 'documents' })"><ArrowLeftOutlined /> Documents</a-button><h1>{{ document?.fileName || 'Document details' }}</h1><p>{{ documentId }}</p></div>
-    <a-space wrap><a-button @click="$router.push({ name: 'search', query: { documentId } })"><SearchOutlined /> Search passages</a-button><a-button @click="load"><ReloadOutlined /> Refresh</a-button><a-button v-if="isAdmin && document" danger :loading="deleting" @click="confirmDelete">Delete document</a-button></a-space>
+    <a-space wrap><a-button @click="$router.push({ name: 'search', query: { documentId } })"><SearchOutlined /> Search passages</a-button><a-button @click="$router.push({ name: 'ask', query: { documentId } })"><CommentOutlined /> Ask about document</a-button><a-button @click="load"><ReloadOutlined /> Refresh</a-button><a-button v-if="isAdmin && document" danger :loading="deleting" @click="confirmDelete">Delete document</a-button></a-space>
   </div>
   <a-alert v-if="errorMessage" :message="errorMessage" type="error" show-icon class="page-alert" />
   <a-spin :spinning="loading || deleting">
@@ -33,7 +33,7 @@ import axios from 'axios';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Modal, message, type TablePaginationConfig } from 'ant-design-vue';
-import { ArrowLeftOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-vue';
+import { ArrowLeftOutlined, CommentOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-vue';
 import { deleteDocument, getDocument, listDocumentIngestions } from '@/api/documents';
 import type { DocumentItem, IngestionItem, PageResult, ProcessingStatus } from '@/api/documents';
 import { useAuthStore } from '@/stores/auth';
